@@ -185,4 +185,29 @@ client.on('messageCreate', msg => {
     }
 })
 
-client.login(token)
+// Add error handling for client connection
+client.on('error', error => {
+    console.error('Discord client error:', error);
+});
+
+// Add reconnection handling
+client.on('disconnect', () => {
+    console.log('Bot disconnected, attempting to reconnect...');
+    client.login(token).catch(err => {
+        console.error('Failed to reconnect:', err);
+    });
+});
+
+// Modify the login to include error handling
+client.login(token).catch(error => {
+    console.error('Failed to login:', error);
+});
+
+// Add process error handlers
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+});
