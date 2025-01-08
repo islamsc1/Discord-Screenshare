@@ -1,6 +1,6 @@
-const webdriver = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
-const ytdl = require('ytdl-core');
+const webdriver = require('selenium-webdriver')
+const chrome = require('selenium-webdriver/chrome')
+const ytdl = require('ytdl-core')
 
 class Video {
     async load(url, youtube_dl, msg) {
@@ -141,7 +141,6 @@ class Stream extends Video {
 
     constructor(token, headless = true) {
         super()
-        this.debug = true; // Enable debugging
         const chrome_options = new chrome.Options()
         headless && chrome_options.addArguments('--headless')
         chrome_options.addArguments('--no-sandbox')
@@ -152,194 +151,10 @@ class Stream extends Video {
         chrome_options.addArguments('--disable-dev-shm-usage')
         chrome_options.addArguments('--autoplay-policy=no-user-gesture-required')
         chrome_options.addArguments('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36')
-        
-        // Add codec support
-        chrome_options.addArguments('--use-fake-ui-for-media-stream');
-        chrome_options.addArguments('--use-fake-device-for-media-stream');
-        chrome_options.addArguments('--autoplay-policy=no-user-gesture-required');
-        chrome_options.addArguments('--enable-usermedia-screen-capturing');
-        chrome_options.addArguments('--allow-file-access-from-files');
-        chrome_options.addArguments('--enable-features=WebRTCPipeWireCapturer');
-        
-        console.log("[Debug] Webdriver starting with options:", chrome_options);
-        this.driver = new webdriver.Builder()
-            .forBrowser('chrome')
-            .setChromeOptions(chrome_options)
-            .build()
-        
-        this.driver.get(this.client_url).then(async () => {
-            console.log("[Debug] Client page loaded");
-            await this.verifyDOMElements();
-        }).catch(err => {
-            console.error("[Debug] Error loading client page:", err)
-        });
-        
-        this.initDebugListeners()
-    }
-
-    async verifyDOMElements() {
-        try {
-            const check = await this.driver.executeScript(`
-                return {
-                    html: document.documentElement.innerHTML.length,
-                    video: !!document.querySelector('video'),
-                    discord: !!document.querySelector('[class*="discord"]'),
-                    token: !!localStorage.getItem('token'),
-                    url: window.location.href
-                }
-            `);
-            console.log("[Debug] DOM Check:", check);
-        } catch (e) {
-            console.error("[Debug] DOM Check Error:", e);
-        }
-    }
-
-    initDebugListeners() {
-        // Add debug event listeners
-        this.driver.executeScript(`
-            video.addEventListener('play', () => {
-                console.log('[Debug] Video started playing');
-            });
-            video.addEventListener('error', (e) => {
-                console.error('[Debug] Video error:', e);
-            });
-            video.addEventListener('loadeddata', () => {
-                console.log('[Debug] Video data loaded');
-            });
-        `).catch(e => console.error('[Debug] Error setting up listeners:', e));
-    }
-
-    async start() {
-        console.log("[Debug] Starting stream...")
-        try {
-            const preCheck = await this.driver.executeScript(`
-                return {
-                    inVoice: !!document.querySelector('[class*="voiceCallWrapper"]'),
-                    hasStreamButton: !!document.querySelector('[aria-label="Share Your Screen"]'),
-                    channelName: document.querySelector('[class*="channelName"]')?.textContent,
-                    videoElement: !!document.querySelector('video')
-                }
-            `);
-            console.log("[Debug] Pre-stream check:", preCheck);
-
-            if (!preCheck.inVoice) {
-                console.error("[Debug] Not in voice channel!");
-                return;
-            }
-
-            const result = await this.driver.executeScript(`
-                const streamBtn = document.querySelector('[aria-label="Share Your Screen"]');
-                if (!streamBtn) {
-                    console.error('[Debug] Stream button not found');
-                    return false;
-                }
-                console.log('[Debug] Stream button found:', streamBtn.className);
-                streamBtn.click();
-                return true;
-            `);
-            
-            setTimeout(async () => {
-                const postClick = await this.driver.executeScript(`
-                    return {
-                        streamActive: document.querySelector('[aria-label="Share Your Screen"]')?.className.includes('buttonActive'),
-                        screenSharePicker: !!document.querySelector('[class*="shareScreen"]'),
-                        errorPopup: !!document.querySelector('[class*="errorModal"]')
-                    }
-                `);
-                console.log("[Debug] Post-click state:", postClick);
-            }, 1000);
-
-        } catch (e) {
-            console.error("[Debug] Error in start():", e, e.stack);
-        }
-    }
-
-    async checkStreamStatus() {
-        try {
-            const status = await this.driver.executeScript(`
-                return {
-                    videoPresent: !!document.querySelector('video'),
-                    videoPlaying: !!(document.querySelector('video')?.currentTime > 0),
-                    streamButton: !!document.querySelector('[aria-label="Share Your Screen"]')?.className.includes('buttonActive-3FrkXp'),
-                    videoError: document.querySelector('video')?.error
-                }
-            `);
-            console.log("[Debug] Stream status:", status);
-            return status;
-        } catch (e) {
-            console.error("[Debug] Error checking stream status:", e);
-            return null;
-        }
-    }
-
-    async join(msg) {
-        console.log("[Debug] Join process started");
-        console.log("[Debug] Channel ID:", this.channel_id);
-        console.log("[Debug] Guild ID:", this.guild_id);
-        
-        try {
-            const pageState = await this.driver.executeScript(`
-                return {
-                    url: window.location.href,
-                    ready: !!document.querySelector('#app-mount'),
-                    loggedIn: !!document.querySelector('[class*="guilds-"]')
-                }
-            `);
-            console.log("[Debug] Page state before join:", pageState);
-        } catch (e) {
-            console.error("[Debug] Error checking page state:", e);
-        }
-
-        var intJoin = setInterval(async () => {
-            try {
-                console.log("[Debug] Attempting to find channel element");
-                const channelCheck = await this.driver.executeScript(`
-                    const channel = document.querySelector("[data-list-item-id='channels___${this.channel_id}']");
-                    if (!channel) {
-                        return { found: false, html: document.documentElement.innerHTML.length };
-                    }
-                    return { 
-                        found: true, 
-                        visible: channel.offsetParent !== null,
-                        disabled: channel.getAttribute('aria-disabled'),
-                        text: channel.textContent
-                    };
-                `);
-                console.log("[Debug] Channel element check:", channelCheck);
-
-                if (channelCheck.found) {
-                    console.log("[Debug] Channel found, attempting to click");
-                    await this.driver.executeScript(`
-                        document.querySelector("[data-list-item-id='channels___${this.channel_id}']").click();
-                        console.log('[Debug] Channel clicked');
-                    `);
-                    
-                    console.log("[Debug] Checking voice connection");
-                    setTimeout(async () => {
-                        const voiceCheck = await this.driver.executeScript(`
-                            return {
-                                voiceConnected: !!document.querySelector('[class*="voiceCallWrapper"]'),
-                                streamButton: !!document.querySelector('[aria-label="Share Your Screen"]'),
-                                channelHeader: !!document.querySelector('[class*="channelName"]')?.textContent
-                            }
-                        `);
-                        console.log("[Debug] Voice connection state:", voiceCheck);
-                        
-                        if (voiceCheck.voiceConnected) {
-                            this.start();
-                            console.log("[Debug] Voice connected, starting stream");
-                            clearInterval(intJoin);
-                        }
-                    }, 2000);
-                } else {
-                    console.log("[Debug] Channel not found, scrolling");
-                    this.scroll();
-                }
-            } catch (e) {
-                console.error("[Debug] Error in join process:", e);
-                this.scroll();
-            }
-        }, 1000);
+        console.log("Webdriver started")
+        this.driver = new webdriver.Builder().forBrowser('chrome').setChromeOptions(chrome_options).build()
+        this.driver.get(this.client_url)
+        this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
     }
 
     open_guild() {
@@ -366,6 +181,44 @@ class Stream extends Video {
             else
                 c_inject.scroll(0, c_inject.scrollTop + 250)
         `)
+    }
+
+    join(msg) {
+        var intJoin = setInterval(() => {
+            this.driver.executeScript(`document.querySelector("[data-list-item-id='channels___${this.channel_id}']").click()`)
+                .then(() => {
+                    // this.is_locked()
+                    //     .then(result => {
+                    //         if (result) {
+                    //             msg.channel.send(":no_entry_sign: Channel is locked")
+                    //             return
+                    //         }
+                    //     })
+
+                    // this.is_full()
+                    //     .then(result => {
+                    //         if (result) {
+                    //             msg.channel.send(":no_entry_sign: Channel is full")
+                    //             return
+                    //         }
+                    //     })
+
+                    setTimeout(() => {
+                        this.start()
+                    }, 1000)
+
+                    clearInterval(intJoin)
+                })
+                .catch(() => this.scroll())
+        }, 10)
+    }
+
+    start() {
+        this.driver.executeScript(`
+                var streamBtn_inject = document.querySelector('[aria-label="Share Your Screen"]')
+                !streamBtn_inject.className.includes('buttonActive-3FrkXp') &&
+                    streamBtn_inject.click()
+        `).catch(e => e)
     }
 
     stop() {
