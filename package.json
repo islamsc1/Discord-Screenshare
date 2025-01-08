@@ -1,9 +1,13 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Discord Screenshare Bot",
   "main": "main.js",
   "bin": "main.js",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
   "scripts": {
     "start": "node main.js"
   },
@@ -11,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js-selfbot-v13": "^3.4.6",
+    "discord.js-selfbot-v13": "^1.0.0",
     "dotenv": "^10.0.0",
     "selenium-webdriver": "^4.0.0-beta.4",
     "ytdl-core": "^4.11.0"
