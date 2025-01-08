@@ -141,6 +141,7 @@ class Stream extends Video {
 
     constructor(token, headless = true) {
         super()
+        this.debug = true; // Enable debugging
         const chrome_options = new chrome.Options()
         headless && chrome_options.addArguments('--headless')
         chrome_options.addArguments('--no-sandbox')
@@ -160,13 +161,111 @@ class Stream extends Video {
         chrome_options.addArguments('--allow-file-access-from-files');
         chrome_options.addArguments('--enable-features=WebRTCPipeWireCapturer');
         
-        console.log("Webdriver started")
+        console.log("[Debug] Webdriver starting...")
         this.driver = new webdriver.Builder()
             .forBrowser('chrome')
             .setChromeOptions(chrome_options)
             .build()
-        this.driver.get(this.client_url)
-        this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
+        
+        this.driver.get(this.client_url).then(() => {
+            console.log("[Debug] Client page loaded")
+        }).catch(err => {
+            console.error("[Debug] Error loading client page:", err)
+        })
+        
+        this.initDebugListeners()
+    }
+
+    initDebugListeners() {
+        // Add debug event listeners
+        this.driver.executeScript(`
+            video.addEventListener('play', () => {
+                console.log('[Debug] Video started playing');
+            });
+            video.addEventListener('error', (e) => {
+                console.error('[Debug] Video error:', e);
+            });
+            video.addEventListener('loadeddata', () => {
+                console.log('[Debug] Video data loaded');
+            });
+        `).catch(e => console.error('[Debug] Error setting up listeners:', e));
+    }
+
+    async start() {
+        console.log("[Debug] Starting stream...")
+        try {
+            const result = await this.driver.executeScript(`
+                var streamBtn_inject = document.querySelector('[aria-label="Share Your Screen"]');
+                if (!streamBtn_inject) {
+                    console.error('[Debug] Stream button not found');
+                    return false;
+                }
+                if (streamBtn_inject.className.includes('buttonActive-3FrkXp')) {
+                    console.log('[Debug] Stream already active');
+                    return true;
+                }
+                streamBtn_inject.click();
+                return true;
+            `);
+            
+            // Verify stream started
+            setTimeout(async () => {
+                const streamActive = await this.checkStreamStatus();
+                console.log("[Debug] Stream active status:", streamActive);
+            }, 2000);
+
+        } catch (e) {
+            console.error("[Debug] Error in start():", e)
+        }
+    }
+
+    async checkStreamStatus() {
+        try {
+            const status = await this.driver.executeScript(`
+                return {
+                    videoPresent: !!document.querySelector('video'),
+                    videoPlaying: !!(document.querySelector('video')?.currentTime > 0),
+                    streamButton: !!document.querySelector('[aria-label="Share Your Screen"]')?.className.includes('buttonActive-3FrkXp'),
+                    videoError: document.querySelector('video')?.error
+                }
+            `);
+            console.log("[Debug] Stream status:", status);
+            return status;
+        } catch (e) {
+            console.error("[Debug] Error checking stream status:", e);
+            return null;
+        }
+    }
+
+    async join(msg) {
+        console.log("[Debug] Attempting to join channel:", this.channel_id);
+        var intJoin = setInterval(async () => {
+            try {
+                await this.driver.executeScript(`
+                    let channel = document.querySelector("[data-list-item-id='channels___${this.channel_id}']");
+                    if (!channel) {
+                        console.log('[Debug] Channel not found, scrolling...');
+                        return false;
+                    }
+                    channel.click();
+                    return true;
+                `).then(async (clicked) => {
+                    if (clicked) {
+                        console.log("[Debug] Channel clicked successfully");
+                        setTimeout(() => {
+                            this.start();
+                            console.log("[Debug] Starting stream after join");
+                        }, 1000);
+                        clearInterval(intJoin);
+                    } else {
+                        this.scroll();
+                    }
+                });
+            } catch (e) {
+                console.error("[Debug] Error in join():", e);
+                this.scroll();
+            }
+        }, 1000); // Increased interval for better stability
     }
 
     open_guild() {
@@ -193,44 +292,6 @@ class Stream extends Video {
             else
                 c_inject.scroll(0, c_inject.scrollTop + 250)
         `)
-    }
-
-    join(msg) {
-        var intJoin = setInterval(() => {
-            this.driver.executeScript(`document.querySelector("[data-list-item-id='channels___${this.channel_id}']").click()`)
-                .then(() => {
-                    // this.is_locked()
-                    //     .then(result => {
-                    //         if (result) {
-                    //             msg.channel.send(":no_entry_sign: Channel is locked")
-                    //             return
-                    //         }
-                    //     })
-
-                    // this.is_full()
-                    //     .then(result => {
-                    //         if (result) {
-                    //             msg.channel.send(":no_entry_sign: Channel is full")
-                    //             return
-                    //         }
-                    //     })
-
-                    setTimeout(() => {
-                        this.start()
-                    }, 1000)
-
-                    clearInterval(intJoin)
-                })
-                .catch(() => this.scroll())
-        }, 10)
-    }
-
-    start() {
-        this.driver.executeScript(`
-                var streamBtn_inject = document.querySelector('[aria-label="Share Your Screen"]')
-                !streamBtn_inject.className.includes('buttonActive-3FrkXp') &&
-                    streamBtn_inject.click()
-        `).catch(e => e)
     }
 
     stop() {
