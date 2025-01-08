@@ -1,6 +1,7 @@
 const webdriver = require('selenium-webdriver')
 const chrome = require('selenium-webdriver/chrome')
 const ytdl = require('ytdl-core')
+const { Builder, Options } = require('selenium-webdriver/chrome');
 
 class Video {
     async load(url, youtube_dl, msg) {
@@ -141,7 +142,7 @@ class Stream extends Video {
 
     constructor(token, headless = true) {
         super()
-        const chrome_options = new chrome.Options()
+        const chrome_options = new Options()
         headless && chrome_options.addArguments('--headless')
         chrome_options.addArguments('--no-sandbox')
         chrome_options.addArguments('--window-size=1920,1080')
@@ -151,8 +152,17 @@ class Stream extends Video {
         chrome_options.addArguments('--disable-dev-shm-usage')
         chrome_options.addArguments('--autoplay-policy=no-user-gesture-required')
         chrome_options.addArguments('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36')
+        
+        // Add codec support
+        chrome_options.addArguments('--use-fake-ui-for-media-stream');
+        chrome_options.addArguments('--use-fake-device-for-media-stream');
+        chrome_options.addArguments('--autoplay-policy=no-user-gesture-required');
+        chrome_options.addArguments('--enable-usermedia-screen-capturing');
+        chrome_options.addArguments('--allow-file-access-from-files');
+        chrome_options.addArguments('--enable-features=WebRTCPipeWireCapturer');
+        
         console.log("Webdriver started")
-        this.driver = new webdriver.Builder().forBrowser('chrome').setChromeOptions(chrome_options).build()
+        this.driver = new Builder().forBrowser('chrome').setChromeOptions(chrome_options).build()
         this.driver.get(this.client_url)
         this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
     }
