@@ -1,7 +1,6 @@
-const webdriver = require('selenium-webdriver')
-const chrome = require('selenium-webdriver/chrome')
-const ytdl = require('ytdl-core')
-const { Builder, Options } = require('selenium-webdriver/chrome');
+const webdriver = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
+const ytdl = require('ytdl-core');
 
 class Video {
     async load(url, youtube_dl, msg) {
@@ -142,7 +141,7 @@ class Stream extends Video {
 
     constructor(token, headless = true) {
         super()
-        const chrome_options = new Options()
+        const chrome_options = new chrome.Options()
         headless && chrome_options.addArguments('--headless')
         chrome_options.addArguments('--no-sandbox')
         chrome_options.addArguments('--window-size=1920,1080')
@@ -162,7 +161,10 @@ class Stream extends Video {
         chrome_options.addArguments('--enable-features=WebRTCPipeWireCapturer');
         
         console.log("Webdriver started")
-        this.driver = new Builder().forBrowser('chrome').setChromeOptions(chrome_options).build()
+        this.driver = new webdriver.Builder()
+            .forBrowser('chrome')
+            .setChromeOptions(chrome_options)
+            .build()
         this.driver.get(this.client_url)
         this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
     }
