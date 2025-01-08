@@ -161,19 +161,37 @@ class Stream extends Video {
         chrome_options.addArguments('--allow-file-access-from-files');
         chrome_options.addArguments('--enable-features=WebRTCPipeWireCapturer');
         
-        console.log("[Debug] Webdriver starting...")
+        console.log("[Debug] Webdriver starting with options:", chrome_options);
         this.driver = new webdriver.Builder()
             .forBrowser('chrome')
             .setChromeOptions(chrome_options)
             .build()
         
-        this.driver.get(this.client_url).then(() => {
-            console.log("[Debug] Client page loaded")
+        this.driver.get(this.client_url).then(async () => {
+            console.log("[Debug] Client page loaded");
+            await this.verifyDOMElements();
         }).catch(err => {
             console.error("[Debug] Error loading client page:", err)
-        })
+        });
         
         this.initDebugListeners()
+    }
+
+    async verifyDOMElements() {
+        try {
+            const check = await this.driver.executeScript(`
+                return {
+                    html: document.documentElement.innerHTML.length,
+                    video: !!document.querySelector('video'),
+                    discord: !!document.querySelector('[class*="discord"]'),
+                    token: !!localStorage.getItem('token'),
+                    url: window.location.href
+                }
+            `);
+            console.log("[Debug] DOM Check:", check);
+        } catch (e) {
+            console.error("[Debug] DOM Check Error:", e);
+        }
     }
 
     initDebugListeners() {
@@ -194,28 +212,45 @@ class Stream extends Video {
     async start() {
         console.log("[Debug] Starting stream...")
         try {
+            const preCheck = await this.driver.executeScript(`
+                return {
+                    inVoice: !!document.querySelector('[class*="voiceCallWrapper"]'),
+                    hasStreamButton: !!document.querySelector('[aria-label="Share Your Screen"]'),
+                    channelName: document.querySelector('[class*="channelName"]')?.textContent,
+                    videoElement: !!document.querySelector('video')
+                }
+            `);
+            console.log("[Debug] Pre-stream check:", preCheck);
+
+            if (!preCheck.inVoice) {
+                console.error("[Debug] Not in voice channel!");
+                return;
+            }
+
             const result = await this.driver.executeScript(`
-                var streamBtn_inject = document.querySelector('[aria-label="Share Your Screen"]');
-                if (!streamBtn_inject) {
+                const streamBtn = document.querySelector('[aria-label="Share Your Screen"]');
+                if (!streamBtn) {
                     console.error('[Debug] Stream button not found');
                     return false;
                 }
-                if (streamBtn_inject.className.includes('buttonActive-3FrkXp')) {
-                    console.log('[Debug] Stream already active');
-                    return true;
-                }
-                streamBtn_inject.click();
+                console.log('[Debug] Stream button found:', streamBtn.className);
+                streamBtn.click();
                 return true;
             `);
             
-            // Verify stream started
             setTimeout(async () => {
-                const streamActive = await this.checkStreamStatus();
-                console.log("[Debug] Stream active status:", streamActive);
-            }, 2000);
+                const postClick = await this.driver.executeScript(`
+                    return {
+                        streamActive: document.querySelector('[aria-label="Share Your Screen"]')?.className.includes('buttonActive'),
+                        screenSharePicker: !!document.querySelector('[class*="shareScreen"]'),
+                        errorPopup: !!document.querySelector('[class*="errorModal"]')
+                    }
+                `);
+                console.log("[Debug] Post-click state:", postClick);
+            }, 1000);
 
         } catch (e) {
-            console.error("[Debug] Error in start():", e)
+            console.error("[Debug] Error in start():", e, e.stack);
         }
     }
 
@@ -238,34 +273,73 @@ class Stream extends Video {
     }
 
     async join(msg) {
-        console.log("[Debug] Attempting to join channel:", this.channel_id);
+        console.log("[Debug] Join process started");
+        console.log("[Debug] Channel ID:", this.channel_id);
+        console.log("[Debug] Guild ID:", this.guild_id);
+        
+        try {
+            const pageState = await this.driver.executeScript(`
+                return {
+                    url: window.location.href,
+                    ready: !!document.querySelector('#app-mount'),
+                    loggedIn: !!document.querySelector('[class*="guilds-"]')
+                }
+            `);
+            console.log("[Debug] Page state before join:", pageState);
+        } catch (e) {
+            console.error("[Debug] Error checking page state:", e);
+        }
+
         var intJoin = setInterval(async () => {
             try {
-                await this.driver.executeScript(`
-                    let channel = document.querySelector("[data-list-item-id='channels___${this.channel_id}']");
+                console.log("[Debug] Attempting to find channel element");
+                const channelCheck = await this.driver.executeScript(`
+                    const channel = document.querySelector("[data-list-item-id='channels___${this.channel_id}']");
                     if (!channel) {
-                        console.log('[Debug] Channel not found, scrolling...');
-                        return false;
+                        return { found: false, html: document.documentElement.innerHTML.length };
                     }
-                    channel.click();
-                    return true;
-                `).then(async (clicked) => {
-                    if (clicked) {
-                        console.log("[Debug] Channel clicked successfully");
-                        setTimeout(() => {
+                    return { 
+                        found: true, 
+                        visible: channel.offsetParent !== null,
+                        disabled: channel.getAttribute('aria-disabled'),
+                        text: channel.textContent
+                    };
+                `);
+                console.log("[Debug] Channel element check:", channelCheck);
+
+                if (channelCheck.found) {
+                    console.log("[Debug] Channel found, attempting to click");
+                    await this.driver.executeScript(`
+                        document.querySelector("[data-list-item-id='channels___${this.channel_id}']").click();
+                        console.log('[Debug] Channel clicked');
+                    `);
+                    
+                    console.log("[Debug] Checking voice connection");
+                    setTimeout(async () => {
+                        const voiceCheck = await this.driver.executeScript(`
+                            return {
+                                voiceConnected: !!document.querySelector('[class*="voiceCallWrapper"]'),
+                                streamButton: !!document.querySelector('[aria-label="Share Your Screen"]'),
+                                channelHeader: !!document.querySelector('[class*="channelName"]')?.textContent
+                            }
+                        `);
+                        console.log("[Debug] Voice connection state:", voiceCheck);
+                        
+                        if (voiceCheck.voiceConnected) {
                             this.start();
-                            console.log("[Debug] Starting stream after join");
-                        }, 1000);
-                        clearInterval(intJoin);
-                    } else {
-                        this.scroll();
-                    }
-                });
+                            console.log("[Debug] Voice connected, starting stream");
+                            clearInterval(intJoin);
+                        }
+                    }, 2000);
+                } else {
+                    console.log("[Debug] Channel not found, scrolling");
+                    this.scroll();
+                }
             } catch (e) {
-                console.error("[Debug] Error in join():", e);
+                console.error("[Debug] Error in join process:", e);
                 this.scroll();
             }
-        }, 1000); // Increased interval for better stability
+        }, 1000);
     }
 
     open_guild() {
