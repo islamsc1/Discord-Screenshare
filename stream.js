@@ -226,6 +226,34 @@ class Stream extends Video {
         this.init = false
         this.driver.get(this.client_url)
     }
+
+    async takeScreenshot() {
+        try {
+            console.log("[Debug] Taking screenshot...");
+            // Take screenshot of video element
+            const screenshot = await this.driver.executeScript(`
+                const video = document.querySelector('video');
+                if (!video) return null;
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                return canvas.toDataURL('image/png').split(',')[1];
+            `);
+
+            if (!screenshot) {
+                console.error("[Debug] No video element found for screenshot");
+                return null;
+            }
+
+            return Buffer.from(screenshot, 'base64');
+        } catch (e) {
+            console.error("[Debug] Screenshot error:", e);
+            return null;
+        }
+    }
 }
 
 exports.Stream = Stream

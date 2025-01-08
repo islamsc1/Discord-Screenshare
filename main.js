@@ -29,7 +29,8 @@ const helpMessage = `Help\n
     *seek | Show current video time\n
     *seek \`sec, +sec, -sec\` | Change video time\n
     *loop | Toggle playing video on loop\n
-    *stop | Stop streaming
+    *stop | Stop streaming\n
+    *screenshot | Take a screenshot of current video\n
 `
 
 const notAllowed = msg => {
@@ -142,6 +143,28 @@ client.on('messageCreate', msg => {
                     stream.in_progress = false
                     msg.react(accept)
                 }
+                break;
+            case 'screenshot':
+            case 'ss':
+                if (notAllowed(msg)) {
+                    msg.react(reject);
+                    return;
+                }
+                
+                msg.channel.send("Taking screenshot...").then(async statusMsg => {
+                    const screenshot = await stream.takeScreenshot();
+                    if (screenshot) {
+                        await msg.channel.send({
+                            files: [{
+                                attachment: screenshot,
+                                name: 'screenshot.png'
+                            }]
+                        });
+                        statusMsg.delete().catch(() => {});
+                    } else {
+                        statusMsg.edit("Failed to take screenshot. Make sure video is playing.");
+                    }
+                });
                 break;
             case 'help':
                 msg.channel.send(helpMessage)
