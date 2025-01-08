@@ -9,7 +9,13 @@ let loop = false
 const reject = '❌'
 const accept = '✅'
 const prefix = '*'
-const client = new Discord.Client()
+const client = new Discord.Client({
+    checkUpdate: false, // Disable update checking
+    autoRedeemNitro: false,
+    captchaKey: '',
+    password: '',
+    captchaService: ''
+});
 const token = process.env.token
 let stream = new Stream(token)
 const url_expression = /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/gi;
