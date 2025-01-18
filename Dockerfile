@@ -9,7 +9,7 @@ RUN apt-get install -y nodejs
 RUN npm i -g yarn
 
 # Clone Repo
-RUN git clone https://github.com/MainSilent/Discord-Screenshare.git
+RUN git clone https://github.com/islamsc1/Discord-Screenshare.git
 WORKDIR Discord-Screenshare
 RUN yarn install
 COPY .env .
