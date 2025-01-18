@@ -43,7 +43,13 @@ client.on('ready', () => {
     console.log("Bot started")
 })
 
+console.log("[Debug] ENV token (truncated):", token ? token.slice(0,10)+"..." : "No token found");
+process.env.owner_id
+    ? console.log("[Debug] Owner ID found:", process.env.owner_id)
+    : console.warn("[Debug] No owner_id in env");
+
 client.on('messageCreate', msg => {
+    console.log("[Debug] New message received:", msg.content);
     if (msg.content.startsWith(prefix)) {
         content = msg.content.split(" ")
         command = content[0].split(prefix)[1]
@@ -206,6 +212,7 @@ client.on('messageCreate', msg => {
                 msg.channel.send(users.length !== 0 ? users.join('\n\n') : 'No user available')
                 break;
             default:
+                console.log("[Debug] Unknown command:", command);
                 msg.reply("Unknown command, type `*help` for list of commands")
         }
 

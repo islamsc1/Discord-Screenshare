@@ -4,6 +4,7 @@ const ytdl = require('ytdl-core')
 
 class Video {
     async load(url, youtube_dl, msg) {
+        console.log("[Debug] load() called with url:", url);
         if (this.in_loading) return
         this.in_loading = true
         this.driver.executeScript('video.innerHTML = null')
@@ -57,6 +58,11 @@ class Video {
                         }, 10)
                     })
             })
+
+        // After video.src is set:
+        this.driver.executeScript("return video.src")
+            .then(srcVal => console.log("[Debug] video.src is now:", srcVal))
+            .catch(err => console.error("[Debug] Error checking video.src:", err));
 
         // Wait until video load
         let is_load
@@ -153,7 +159,11 @@ class Stream extends Video {
         chrome_options.addArguments('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36')
         console.log("Webdriver started")
         this.driver = new webdriver.Builder().forBrowser('chrome').setChromeOptions(chrome_options).build()
-        this.driver.get(this.client_url)
+        this.driver.get(this.client_url).then(async () => {
+            console.log("[Debug] Client page loaded:", this.client_url);
+            const htmlLength = await this.driver.executeScript("return document.documentElement.innerHTML.length");
+            console.log("[Debug] Length of loaded HTML:", htmlLength);
+        }).catch(err => console.error("[Debug] Error loading client page:", err));
         this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
     }
 
