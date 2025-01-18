@@ -4,7 +4,7 @@ FROM ubuntu:20.04
 RUN apt-get update
 RUN apt-get install -y curl git unzip wget
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
-RUN curl -fsSL https://deb.nodesource.com/setup_17.x | bash -
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get install -y nodejs
 RUN npm i -g yarn
 
