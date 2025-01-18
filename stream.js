@@ -9,6 +9,8 @@ class Video {
         this.in_loading = true
         this.driver.executeScript('video.innerHTML = null')
 
+        await this.createIfMissing();  // Ensure video element is in the DOM
+
         if (youtube_dl) {
             await msg.edit("Fetching video formats...")
                 .then(async msg => {
@@ -165,6 +167,19 @@ class Stream extends Video {
             console.log("[Debug] Length of loaded HTML:", htmlLength);
         }).catch(err => console.error("[Debug] Error loading client page:", err));
         this.driver.executeScript(`localStorage.setItem("token", '"${token}"')`)
+    }
+
+    async createIfMissing() {
+        await this.driver.executeScript(`
+            if (!document.querySelector('video')) {
+                const videoEl = document.createElement('video');
+                videoEl.setAttribute('id', 'video');
+                videoEl.autoplay = false;
+                videoEl.controls = true;
+                document.body.appendChild(videoEl);
+                console.log("[Debug] <video> element created in DOM.");
+            }
+        `);
     }
 
     open_guild() {
